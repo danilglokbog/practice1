@@ -70,42 +70,36 @@ void appendRowToFile(const Database& dbManager, const string& tableName, int fil
 //процесс операции insert
 void processInsert(const string& command, Database& dbManager) {
     try {
-        Vector<string> tokens;
-        string token;
         stringstream ss(command);
-        while (ss >> token) {
-            tokens.add(token);
-        }
-        if (tokens.getSize() < 6 || tokens[0] != "INSERT" || tokens[1] != "INTO") {
-            cout << "Неверный формат INSERT команды" << endl;
-            return;
-        }
-        string tableName = tokens[2];
+        string insert, into, tableName, valuesKeyword, valuesStr;
+        ss >> insert >> into >> tableName >> valuesKeyword;
+        getline(ss, valuesStr); 
+        
+        tableName = trim(tableName);
+        valuesStr = trim(valuesStr);
+
+        if (!valuesStr.empty() && valuesStr[0] == '(') 
+            valuesStr = valuesStr.substr(1);
+        if (!valuesStr.empty() && valuesStr.back() == ')') 
+            valuesStr = valuesStr.substr(0, valuesStr.length() - 1);
+        
         TableInfo* tableInfo = dbManager.tables.find(tableName);
-        if (tableInfo == nullptr) {
+        if (!tableInfo) {
             cout << "Таблица не существует: " << tableName << endl;
             return;
         }
+        
         if (dbManager.isTableLocked(tableName)) {
             cout << "Таблица заблокирована: " << tableName << endl;
             return;
         }
-        size_t valuesIndex = 0;
-        for (size_t i = 3; i < tokens.getSize(); i++) {
-            if (tokens[i] == "VALUES") {
-                valuesIndex = i;
-                break;
-            }
+        
+        Vector<string> values;
+        stringstream valuesSS(valuesStr);
+        string value;
+        while (getline(valuesSS, value, ',')) {
+            values.add(trim(value));
         }
-        if (valuesIndex == 0) {
-            cout << "Не найден VALUES в команде INSERT" << endl;
-            return;
-        }
-        string valuesPart;
-        for (size_t i = valuesIndex + 1; i < tokens.getSize(); i++) {
-            valuesPart += tokens[i] + " ";
-        }
-        Vector<string> values = extractQuotedValues(valuesPart);
         if (values.getSize() != tableInfo->columns.getSize()) {
             cout << "Неверное количество значений. Ожидается: " << tableInfo->columns.getSize() 
                  << ", получено: " << values.getSize() << endl;
