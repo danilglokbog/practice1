@@ -52,33 +52,43 @@ void removeRowFromFile(const Database& dbManager, const string& tableName,
 //процесс операции delete
 void processDelete(const string& command, Database& dbManager) {
     try {
-        Vector<string> tokens;
-        string token;
         stringstream ss(command);
-        while (ss >> token) {
-            tokens.add(token);
-        }
-        if (tokens.getSize() < 6 || tokens[0] != "DELETE" || tokens[1] != "FROM" || tokens[3] != "WHERE") {
-            cout << "Неправильная команда DELETE" << endl;
-            return;
-        }
-        string tableName = tokens[2];
+        string del, from, tableName, where, conditionsStr;
+        ss >> del >> from >> tableName >> where;
+        getline(ss, conditionsStr);    
+        tableName = trim(tableName);
+        conditionsStr = trim(conditionsStr);  
         TableInfo* tableInfo = dbManager.tables.find(tableName);
-        if (tableInfo == nullptr) {
+        if (!tableInfo) {
             cout << "Таблица не существует: " << tableName << endl;
             return;
-        }
+        }  
         if (dbManager.isTableLocked(tableName)) {
             cout << "Таблица заблокирована: " << tableName << endl;
             return;
         }
-        string wherePart;
-        for (size_t i = 4; i < tokens.getSize(); i++) {
-            wherePart += tokens[i] + " ";
+        
+        Vector<WhereCondition> conditions;
+        if (!conditionsStr.empty()) {
+            stringstream condSS(conditionsStr);
+            string left, op, right, logicOp;
+            WhereCondition cond;
+            
+            while (condSS >> left >> op >> right) {
+                cond.left = left;
+                cond.operatorType = op;
+                cond.right = right;
+                conditions.add(cond);
+                if (condSS >> logicOp) {
+                    if (logicOp == "AND" || logicOp == "OR") {
+                        cond.logicalOperator = logicOp;
+                    }
+                }
+            }
         }
-        Vector<WhereCondition> conditions = parseConditions(wherePart);
+        
         if (conditions.isEmpty()) {
-            cout << "Не указаны условия для удаления" << endl;
+            cout << "Не указаны условия" << endl;
             return;
         }
         dbManager.lockTable(tableName);
