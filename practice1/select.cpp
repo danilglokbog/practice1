@@ -198,70 +198,58 @@ void crossJoin(Database& dbManager
 //функция операции select
 void processSelect(const string& command, Database& dbManager) {
     try {
-        Vector<string> tokens;
-        string token;
         stringstream ss(command);
-        while (ss >> token) {
-            tokens.add(token);
+        string select, columnsStr, from, tablesStr, where, conditionsStr;
+        ss >> select; 
+        getline(ss, columnsStr, 'F'); 
+        ss >> from; 
+        getline(ss, tablesStr, 'W'); 
+        ss >> where; 
+        getline(ss, conditionsStr); 
+        columnsStr = trim(columnsStr);
+        tablesStr = trim(tablesStr);
+        conditionsStr = trim(conditionsStr);
+
+        Vector<ColumnInfo> columns;
+        Vector<string> colList = split(columnsStr, ',');
+        for (size_t i = 0; i < colList.getSize(); i++) {
+            string col = colList[i];
+            ColumnInfo info;
+            stringstream colSS(col);
+            getline(colSS, info.tableName, '.');
+            getline(colSS, info.columnName);
+            info.tableName = trim(info.tableName);
+            info.columnName = trim(info.columnName);
+            columns.add(info);
         }
-        if (tokens.getSize() < 4) {
-            cout << "Неверный формат SELECT команды" << endl;
-            return;
-        }
-        string selectColumns;
-        bool foundFrom = false;
-        for (size_t i = 1; i < tokens.getSize(); i++) {
-            if (tokens[i] == "FROM") {
-                foundFrom = true;
-                break;
-            }
-            selectColumns += tokens[i] + " ";
-        }
-        if (!foundFrom) {
-            cout << "Не найден FROM в команде SELECT" << endl;
-            return;
-        }
-        Vector<ColumnInfo> columns = parseColumns(selectColumns);
+        
         if (columns.isEmpty()) {
-            cout << "Не указаны колонки для выборки" << endl;
+            cout << "Не указаны колонки" << endl;
             return;
         }
-        string tableNames;
-        bool foundWhere = false;
-        size_t fromIndex = 0;
-        for (size_t i = 0; i < tokens.getSize(); i++) {
-            if (tokens[i] == "FROM") {
-                fromIndex = i;
-                break;
-            }
-        }
-        for (size_t i = fromIndex + 1; i < tokens.getSize(); i++) {
-            if (tokens[i] == "WHERE") {
-                foundWhere = true;
-                break;
-            }
-            tableNames += tokens[i] + " ";
-        }
-        Vector<string> tables = split(tableNames, ',');
+        Vector<string> tables = split(tablesStr, ',');
         if (tables.isEmpty()) {
             cout << "Не указаны таблицы" << endl;
             return;
         }
 
         Vector<WhereCondition> conditions;
-        if (foundWhere) {
-            string whereClause;
-            bool startWhere = false;
-            for (size_t i = 0; i < tokens.getSize(); i++) {
-                if (tokens[i] == "WHERE") {
-                    startWhere = true;
-                    continue;
-                }
-                if (startWhere) {
-                    whereClause += tokens[i] + " ";
+        if (!conditionsStr.empty()) {
+            stringstream condSS(conditionsStr);
+            string left, op, right, logicOp;
+            WhereCondition cond;
+            
+            while (condSS >> left >> op >> right) {
+                cond.left = left;
+                cond.operatorType = op;
+                cond.right = right;
+                conditions.add(cond);
+                if (condSS >> logicOp) {
+                    if (logicOp == "AND" || logicOp == "OR") {
+                        cond.logicalOperator = logicOp;
+                    }
                 }
             }
-            conditions = parseConditions(whereClause);
         }
         
         if (tables.getSize() == 1) {
