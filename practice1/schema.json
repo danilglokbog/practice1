@@ -1,0 +1,8 @@
+{
+    "name": "Schema_1",
+    "tuples_limit": 3,
+    "structure": {
+        "table1": ["users", "adress", "bog", "hobby"],
+        "table2": ["films", "name"]
+    }
+}
